@@ -59,11 +59,7 @@ Provides:
   - fuse-7.3.0
   - fuse
 Publishes:
-  publish-zookeeper-url:
-    Type: ENV:NET_TCP:zookeeper-info
 Subscribes:
-  set-zookeeper-url:
-    Type: ENV:NET_TCP:zookeeper-info
 Scaling:
   Min: 1
   Max: 1
