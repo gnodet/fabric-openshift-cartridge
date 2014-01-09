@@ -7,30 +7,59 @@ FUSE_PASSWD_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/passwd
 FUSE_SYSPROPS_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/system.properties
 FUSE_USRPROPS_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/users.properties
 
-function start() {
-	# Store password
-	if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD:-}" ]; then
-	  password=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}
-	  echo "admin=$password,admin" > $FUSE_USRPROPS_FILE
-	  echo "$password" > $FUSE_PASSWD_FILE
-	  echo "zookeeper.password=$password" >> $FUSE_SYSPROPS_FILE
-    fi
+function replace_property_value {
+  sed "s/$1.*=.*/$1 = $2/g" $3 > $3.tmp
+  rm $3
+  mv $3.tmp $3
+}
 
-	# Configure to join an existing fabric
-	if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_URL:-}" ]; then
-	  echo "zookeeper.url=$OPENSHIFT_FUSE_ZOOKEEPER_URL" >> $FUSE_SYSPROPS_FILE
+function setup() {
+	if [ ! -f $FUSE_PASSWD_FILE ]; then
+		
+		# Password
+		if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD:-}" ]; then
+		  password=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}
+		else 
+		  # generate password and setup env vars
+		  echo 'Generating username and password'
+		  password=$(generate_password)
+		fi
 
-	# Turn into a fabric root container
-	else
-		# Additional system properties
-		echo "ensemble.auto.start=true" >> $FUSE_SYSPROPS_FILE
-		echo "zookeeper.server.port=${OPENSHIFT_FUSE_ZOOKEEPER_PORT}" >> $FUSE_SYSPROPS_FILE
-		echo "zookeeper.server.connection.port=${OPENSHIFT_FUSE_ZOOKEEPER_PROXY_PORT}" >> $FUSE_SYSPROPS_FILE
+		# Store password
+		echo "admin=$password,admin" > $FUSE_USRPROPS_FILE
+		echo "$password" > $FUSE_PASSWD_FILE
+        echo "zookeeper.password=$password" >> $FUSE_SYSPROPS_FILE
+
+		# Configure to join an existing fabric
+		if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_URL:-}" ]; then
+		  echo "zookeeper.url=$OPENSHIFT_FUSE_ZOOKEEPER_URL" >> $FUSE_SYSPROPS_FILE
+
+		# Turn into a fabric root container
+		else
+			# Additional system properties
+			replace_property_value ensemble.auto.start true $FUSE_SYSPROPS_FILE
+			echo "zookeeper.server.port=${OPENSHIFT_FUSE_ZOOKEEPER_PORT}" >> $FUSE_SYSPROPS_FILE
+			echo "zookeeper.server.connection.port=${OPENSHIFT_FUSE_ZOOKEEPER_PROXY_PORT}" >> $FUSE_SYSPROPS_FILE
+		fi
+		
+		client_result ""
+		client_result "Fuse created successfully.  Please make note of these credentials:"
+		client_result ""
+		client_result "   User: admin"
+		client_result "   Password: $password"
+  	    client_result "   Zookeeper URL: ${OPENSHIFT_GEAR_DNS}:${OPENSHIFT_FUSE_ZOOKEEPER_PROXY_PORT}"
+		client_result "   Zookeeper Password: $password"
+		client_result ""
+		
+		add_domain_env_var "OPENSHIFT_FUSE_ZOOKEEPER_URL=${OPENSHIFT_FUSE_ZOOKEEPER_URL}"
+		add_domain_env_var "OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}"
 	fi
+}
 
+function start() {
+	setup
     ${FUSE_BIN_DIR}/start
     wait_for_start    
-    #fabric_join
     client_result "Started Fuse cart"
 }
 
