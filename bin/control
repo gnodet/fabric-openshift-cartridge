@@ -16,6 +16,20 @@ function replace_property_value {
 function setup() {
 	if [ ! -f $FUSE_PASSWD_FILE ]; then
 		
+		count=0
+		while [ -z "${OPENSHIFT_FUSE_ZOOKEEPER_URL}" ]; do
+		  sleep 1
+		  client_result "Waiting for OPENSHIFT_FUSE_ZOOKEEPER_URL: `ls ${OPENSHIFT_HOMEDIR}/.env/`"
+#		  if [ -f "${OPENSHIFT_HOMEDIR}/.env/OPENSHIFT_FUSE_ZOOKEEPER_URL" ]; then
+#		    export OPENSHIFT_FUSE_ZOOKEEPER_URL=`cat "${OPENSHIFT_HOMEDIR}/.env/OPENSHIFT_FUSE_ZOOKEEPER_URL"`
+#		  fi
+		  count=$((count+1))
+		  if [ $count == 60 ]; then
+		    break
+		  fi
+		done
+		
+		
 		# Password
 		if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD:-}" ]; then
 		  password=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}

@@ -2,13 +2,6 @@
 
 source $OPENSHIFT_CARTRIDGE_SDK_BASH
 
-function replace_property_value {
-  sed "s/$1.*=.*/$1=$2/g" $3 > $3.tmp
-  rm $3
-  mv $3.tmp $3
-}
-
-
 # Copy the version specific files into diy directory
 shopt -s dotglob
 cd $OPENSHIFT_FUSE_DIR
