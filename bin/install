@@ -1,3 +1,53 @@
 #!/bin/bash -e
 
 source $OPENSHIFT_CARTRIDGE_SDK_BASH
+
+function replace_property_value {
+  sed "s/$1.*=.*/$1=$2/g" $3 > $3.tmp
+  rm $3
+  mv $3.tmp $3
+}
+
+
+# Copy the version specific files into diy directory
+shopt -s dotglob
+cd $OPENSHIFT_FUSE_DIR
+erb $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/org.apache.karaf.management.cfg.erb > container/etc/org.apache.karaf.management.cfg
+erb $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/org.apache.karaf.shell.cfg.erb > container/etc/org.apache.karaf.shell.cfg
+erb $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/org.ops4j.pax.web.cfg.erb > container/etc/org.ops4j.pax.web.cfg
+erb $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/org.ops4j.pax.logging.cfg.erb > container/etc/org.ops4j.pax.logging.cfg
+erb $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/system.properties.erb > container/etc/system.properties
+cp -r $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/bin/* container/bin/
+cp -r $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/template/* $OPENSHIFT_FUSE_DIR/template
+cp $OPENSHIFT_FUSE_DIR/versions/$OPENSHIFT_FUSE_VERSION/etc/jetty.xml container/etc/jetty.xml
+
+# Append shutdown configuration
+echo "karaf.shutdown.host=${OPENSHIFT_FUSE_IP}" >> container/etc/config.properties
+echo "karaf.shutdown.port=${OPENSHIFT_FUSE_SHUTDOWN_PORT}" >> container/etc/config.properties
+# Limit the maximum number of created threads
+echo "felix.threading.timeout=0" >> container/etc/config.properties
+
+# Password
+if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD:-}" ]; then
+  password=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}
+else 
+  # generate password and setup env vars
+  echo 'Generating username and password'
+  password=$(generate_password)
+fi
+
+# Store password
+echo "admin=$password,admin" > container/etc/users.properties
+echo "$password" > container/etc/passwd
+echo "zookeeper.password=$password" >> container/etc/system.properties
+
+client_result ""
+client_result "Fuse created successfully.  Please make note of these credentials:"
+client_result ""
+client_result "   User: admin"
+client_result "   Password: $password"
+if [ -z "${OPENSHIFT_FUSE_ZOOKEEPER_URL:-}" ]; then
+	client_result "   Zookeeper URL: ${OPENSHIFT_GEAR_DNS}:${OPENSHIFT_FUSE_ZOOKEEPER_PROXY_PORT}"
+	client_result "   Zookeeper Password: $password"
+fi	
+client_result ""

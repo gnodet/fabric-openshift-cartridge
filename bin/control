@@ -4,8 +4,30 @@ source $OPENSHIFT_CARTRIDGE_SDK_BASH
 FUSE_BIN_DIR=${OPENSHIFT_FUSE_DIR}/container/bin
 FUSE_PID_FILE=${OPENSHIFT_FUSE_DIR}/container/instances/instance.properties
 FUSE_PASSWD_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/passwd
+FUSE_SYSPROPS_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/system.properties
+FUSE_USRPROPS_FILE=${OPENSHIFT_FUSE_DIR}/container/etc/users.properties
 
 function start() {
+	# Store password
+	if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD:-}" ]; then
+	  password=${OPENSHIFT_FUSE_ZOOKEEPER_PASSWORD}
+	  echo "admin=$password,admin" > $FUSE_USRPROPS_FILE
+	  echo "$password" > $FUSE_PASSWD_FILE
+	  echo "zookeeper.password=$password" >> $FUSE_SYSPROPS_FILE
+    fi
+
+	# Configure to join an existing fabric
+	if [ ! -z "${OPENSHIFT_FUSE_ZOOKEEPER_URL:-}" ]; then
+	  echo "zookeeper.url=$OPENSHIFT_FUSE_ZOOKEEPER_URL" >> $FUSE_SYSPROPS_FILE
+
+	# Turn into a fabric root container
+	else
+		# Additional system properties
+		echo "ensemble.auto.start=true" >> $FUSE_SYSPROPS_FILE
+		echo "zookeeper.server.port=${OPENSHIFT_FUSE_ZOOKEEPER_PORT}" >> $FUSE_SYSPROPS_FILE
+		echo "zookeeper.server.connection.port=${OPENSHIFT_FUSE_ZOOKEEPER_PROXY_PORT}" >> $FUSE_SYSPROPS_FILE
+	fi
+
     ${FUSE_BIN_DIR}/start
     wait_for_start    
     #fabric_join
